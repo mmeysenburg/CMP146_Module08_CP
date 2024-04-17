@@ -1,6 +1,14 @@
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Scanner;
 
@@ -161,6 +169,12 @@ public class WeatherView {
                 state, county, month, year);
     }
 
+
+    private int mapToRange(double v, double minOld, double maxOld, double minNew, double maxNew) {
+        double rv = ((v - minOld) / (maxOld - minOld)) * (maxNew - minNew) + minNew;
+        return (int)rv;
+    }
+
     /**
      * Produce a PNG line plot of the temperature data, using the external GNUPlot application.
      *
@@ -171,42 +185,67 @@ public class WeatherView {
      * @param temps Array of doubles holding the temperatures to plot, in degrees F.
      */
     public void makePlot(String state, String county, String month, int year, double[] temps) {
+        BufferedImage image = new BufferedImage(1100, 1100, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = image.createGraphics();
+
+        // background
+        g.setColor(Color.WHITE);
+        g.fillRect(0,0, 1100, 1100);
+
+        // plot border
+        g.setColor(Color.BLACK);
+        g.drawRect(49, 49, 1000, 1000);
+
+        // plot title
+        Font font = g.getFont();
+        FontMetrics fontMetrics = g.getFontMetrics(font);
+        String title = state + ", " + county + ", " + month + ", " + year;
+        g.drawString(title, 550 - fontMetrics.stringWidth(title) / 2,
+                fontMetrics.getHeight() + 5);
+
+        // axis labels
+        g.drawString("Day", 550, 1080);
+
+        for(int day = 0; day <= 30; day += 5) {
+            int x = mapToRange(day, 0,31, 49, 1049);
+            String s = Integer.toString(day);
+            int sWidth = fontMetrics.stringWidth(s);
+            g.drawString(s, x - sWidth / 2, 1065);
+            g.drawLine(x, 1049, x, 1039);
+        }
+
+        g.translate(20.0, 550);
+        g.rotate(Math.toRadians(-90));
+        g.drawString("Temperature", 0, 0);
+        g.rotate(Math.toRadians(90));
+        g.translate(-20, -550);
+        for(int temp = -20; temp <= 120; temp += 10) {
+            int y = mapToRange(temp, -20, 120, 1049, 49);
+            String s = Integer.toString(temp);
+            int sWidth = fontMetrics.stringWidth(s);
+            int sHeight = fontMetrics.getHeight();
+            g.drawString(s,45 - sWidth, y + sHeight / 4);
+            g.drawLine(49, y, 59, y);
+        }
+
+        // data
+        g.setColor(Color.RED);
+        for(int i = 1; i < temps.length; i++) {
+            int day1 = mapToRange(i, 0, 31, 49, 1049);
+            int day2 = mapToRange(i + 1, 0, 31, 49, 1049);
+            int temp1 = mapToRange(temps[i - 1], -20, 120, 1049, 49);
+            int temp2 = mapToRange(temps[i], -20, 120, 1049, 49);
+            g.drawLine(day1, temp1, day2, temp2);
+        }
+
         try {
-            // root file name is based on the state/county/month/year parameters
-            String fileRoot = state.replace(' ', '_') + "-" +
-                    county.replace(' ', '_') + "-" +
-                    month + year;
-
-            // output data file
-            FileWriter fw = new FileWriter(fileRoot + ".dat", false);
-            PrintWriter pw = new PrintWriter(fw);
-            for (int i = 0; i < temps.length; i++) {
-                pw.println((i + 1) + "\t" + temps[i]);
-            }
-            pw.close();
-
-            // output gnuplot command script
-            fw = new FileWriter(fileRoot + ".p", false);
-            pw = new PrintWriter(fw);
-            pw.println("set terminal png size 1000, 1000");
-            pw.println("set output \"" + fileRoot + ".png" + "\"");
-            pw.println("set autoscale");
-            pw.println("set title \"" + state + ", " + county + ", " +
-                    month + ", " + year + "\"");
-            pw.println("set xlabel \"Day\"");
-            pw.println("set ylabel \"Temperature\"");
-            pw.println("set xr [1:31]");
-            pw.println("set yr [-30:115]");
-            pw.println("plot \"" + fileRoot + ".dat" + "\" with lines");
-            pw.close();
-
-            // use gnuplot to make the plot
-            String command = "gnuplot " + fileRoot + ".p";
-            Process process = Runtime.getRuntime().exec(command);
-            process.getErrorStream().transferTo(System.err);
-
+            System.out.println("The temperatures for " + title + ":");
+            System.out.println(Arrays.toString(temps));
+            String fileName = state + "_" + county + "_" + month + "_" + year + ".jpg";
+            ImageIO.write(image, "jpg", new File(fileName));
         } catch (IOException e) {
             e.printStackTrace();
+            System.err.println("Unable to write image.");
         }
     }
 }
