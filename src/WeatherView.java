@@ -170,13 +170,24 @@ public class WeatherView {
     }
 
 
+    /**
+     * Map a value from one range to another.
+     *
+     * @param v value to map
+     * @param minOld minimum value of old range
+     * @param maxOld maximum value of old range
+     * @param minNew minimum value of new range
+     * @param maxNew maximum value of new range
+     *
+     * @return new value, as an int
+     */
     private int mapToRange(double v, double minOld, double maxOld, double minNew, double maxNew) {
         double rv = ((v - minOld) / (maxOld - minOld)) * (maxNew - minNew) + minNew;
         return (int)rv;
     }
 
     /**
-     * Produce a PNG line plot of the temperature data, using the external GNUPlot application.
+     * Produce a JPG line plot of the temperature data.
      *
      * @param state Currently selected state.
      * @param county Currently selected county.
